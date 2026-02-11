@@ -3,9 +3,7 @@
     :temporary="isMobile" width="300">
     <div class="sidebar-header">
       <div class="logo-section" @click="rail = false">
-        <v-avatar class="logo-avatar" color="primary" size="44">
-          <span class="logo-text">PD</span>
-        </v-avatar>
+       <img src="../../assets/images/logo.png" alt="">
         <transition name="fade">
           <div v-if="!rail" class="logo-info">
             <h1 class="logo-title">PROJEDATA</h1>
@@ -235,6 +233,11 @@ watch(drawer, (newVal) => {
   align-items: center;
   gap: 12px;
   cursor: pointer;
+}
+
+.logo-section img{
+  width: 40px;
+  height: 40px;
 }
 
 .logo-avatar {

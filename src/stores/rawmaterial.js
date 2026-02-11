@@ -46,11 +46,23 @@ export const useRawMaterialStore = defineStore('rawMaterial', () => {
     }
   }
 
+  const updateRawMaterial = async (rawMaterialId, rawMaterialData) => {
+    try {
+      const data = await RawMaterialService.updateRawMaterial(rawMaterialId, rawMaterialData)
+      return data
+    } catch (error) {
+      console.error(`Error updating raw material with ID ${rawMaterialId} in store:`, error)
+    } finally{
+      await getAllRawMaterials()
+    }
+    }
+
   return {
     state,
     getAllRawMaterials,
     getRawMaterialById,
     createRawMaterial,
-    deleteRawMaterial
+    deleteRawMaterial,
+    updateRawMaterial,
   }
 })

@@ -39,6 +39,16 @@ class RawMaterialService {
       console.error(`Error deleting raw material with ID ${rawMaterialId}:`, error)
     }
   }
+
+  async updateRawMaterial(rawMaterialId, rawMaterialData) {
+    try {
+      const response = await api.put(`/raw-materials/${rawMaterialId}`, rawMaterialData)
+      showMessage('Matéria-prima atualizada com sucesso!', 'success', 2000, 'top-right', 'light', false)
+      return response.data
+    } catch (error) {
+      console.error(`Error updating raw material with ID ${rawMaterialId}:`, error)
+    }
+  }
 }
 
 export default new RawMaterialService()

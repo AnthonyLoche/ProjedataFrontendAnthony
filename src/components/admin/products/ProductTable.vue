@@ -4,14 +4,14 @@
       <v-col cols="12" md="4">
         <div class="d-flex align-center">
           <v-avatar color="primary" size="48" class="mr-3">
-            <v-icon icon="mdi-package-variant" color="white" size="28" />
+            <v-icon icon="mdi-cube-outline" color="white" size="28" />
           </v-avatar>
           <div>
             <h2 class="text-h5 font-weight-bold text-text-main">
               {{ title }}
             </h2>
             <p class="text-caption text-text-muted mb-0">
-              Gerencie seu estoque de matérias-primas
+              Gerencie seu catálogo de produtos
             </p>
           </div>
         </div>
@@ -22,7 +22,7 @@
           <v-text-field
             v-model="search"
             prepend-inner-icon="mdi-magnify"
-            label="Buscar matéria-prima"
+            label="Buscar produto"
             placeholder="Digite o nome..."
             variant="outlined"
             density="comfortable"
@@ -64,6 +64,7 @@
       hover
       @click:row="handleRowClick"
     >
+      <!-- ID Column -->
       <template #item.id="{ item }">
         <v-chip 
           size="small" 
@@ -78,7 +79,7 @@
       <template #item.name="{ item }">
         <div class="d-flex align-center">
           <v-avatar color="primary-lighten" size="32" class="mr-3">
-            <v-icon icon="mdi-package-variant-closed" size="18" />
+            <v-icon icon="mdi-cube" size="18" />
           </v-avatar>
           <span class="font-weight-medium text-text-main">
             {{ item.name }}
@@ -86,19 +87,49 @@
         </div>
       </template>
 
-      <!-- Quantity Column -->
-      <template #item.qnt="{ item }">
+      <!-- Value Column -->
+      <template #item.value="{ item }">
+        <div class="d-flex align-center">
+          <v-icon icon="mdi-currency-usd" size="16" class="mr-1 text-success" />
+          <span class="font-weight-bold text-success">
+            {{ formatCurrency(item.value) }}
+          </span>
+        </div>
+      </template>
+
+      <!-- Raw Materials Column -->
+      <template #item.rawMaterials="{ item }">
+        <div v-if="item.rawMaterials && item.rawMaterials.length > 0">
+          <v-tooltip location="top">
+            <template #activator="{ props }">
+              <v-chip 
+                v-bind="props"
+                size="small" 
+                variant="tonal" 
+                color="info"
+                prepend-icon="mdi-package-variant"
+              >
+                {{ item.rawMaterials.length }} {{ item.rawMaterials.length === 1 ? 'item' : 'itens' }}
+              </v-chip>
+            </template>
+            <div class="pa-2">
+              <div 
+                v-for="(material, index) in item.rawMaterials" 
+                :key="index"
+                class="text-caption mb-1"
+              >
+                • {{ material.rawMaterialName }} ({{ material.qnt }} un.)
+              </div>
+            </div>
+          </v-tooltip>
+        </div>
         <v-chip 
-          :color="getStockColor(item.qnt)" 
-          variant="tonal"
-          size="default"
+          v-else
+          size="small" 
+          variant="tonal" 
+          color="grey"
         >
-          <v-icon 
-            :icon="getStockIcon(item.qnt)" 
-            size="16" 
-            class="mr-1"
-          />
-          {{ item.qnt }} unidades
+          Sem matérias-primas
         </v-chip>
       </template>
 
@@ -113,7 +144,7 @@
                 variant="text"
                 size="small"
                 color="primary"
-                @click="editRawMaterial(item)"
+                @click="editProduct(item)"
               />
             </template>
           </v-tooltip>
@@ -142,13 +173,13 @@
       <template #no-data>
         <div class="text-center py-12">
           <v-icon class="mb-4" color="grey-lighten-1" size="80">
-            mdi-package-variant-closed-remove
+            mdi-cube-off-outline
           </v-icon>
           <p class="text-h6 font-weight-bold text-text-main mb-2">
-            Nenhuma matéria-prima encontrada
+            Nenhum produto encontrado
           </p>
           <p class="text-body-2 text-text-muted mb-4">
-            Comece adicionando sua primeira matéria-prima ao estoque
+            Comece adicionando seu primeiro produto ao catálogo
           </p>
           <v-btn 
             color="primary" 
@@ -179,38 +210,39 @@
     </v-data-table>
   </v-card>
 
-  <RawMaterialAddModal v-model="dialog" @saved="handleSaved" />
   <DeleteModal 
     v-model="deleteDialog" 
     :selected-item="selectedItem" 
-    :onDelete="store.deleteRawMaterial" 
-    type="Matéria-Prima" 
+    :onDelete="store.deleteProduct" 
+    type="Produto" 
   />
-  <RawMaterialEditModal 
+  <ProductAddModal v-model="dialog" @saved="handleSaved" />
+  <ProductEditModal 
     v-model="editDialog" 
     :selected-item="selectedItem" 
     @saved="handleSaved" 
   />
-  <RawMaterialMetric 
-    v-model="metricsDialog" 
+  <!-- Adicione aqui o modal de métricas quando criar -->
+  <ProductShowMetrics 
+    v-model="metricDialog" 
     :selected-item="selectedItem" 
   />
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { useRawMaterialStore } from '@/stores/rawmaterial'
-import RawMaterialAddModal from './RawMaterialAddModal.vue'
-import DeleteModal from "../DeleteModal.vue"
-import RawMaterialEditModal from './RawMaterialEditModal.vue'
-import RawMaterialMetric from './RawMaterialMetric.vue'
+import { useProductStore } from '@/stores/product'
+import ProductAddModal from './ProductAddModal.vue'
+import DeleteModal from '../DeleteModal.vue'
+import ProductEditModal from './ProductEditModal.vue'
+import ProductShowMetrics from './ProductShowMetrics.vue'
 
 defineProps({
-  title: { type: String, default: 'Matérias-Primas' },
-  addButtonText: { type: String, default: 'Adicionar Nova Matéria-Prima' },
+  title: { type: String, default: 'Produtos' },
+  addButtonText: { type: String, default: 'Adicionar Novo Produto' },
 })
 
-const store = useRawMaterialStore()
+const store = useProductStore()
 
 const page = ref(1)
 const itemsPerPage = ref(10)
@@ -218,11 +250,11 @@ const isLoading = ref(false)
 const dialog = ref(false)
 const deleteDialog = ref(false)
 const editDialog = ref(false)
-const metricsDialog = ref(false)
+const metricDialog = ref(false)
 const selectedItem = ref(null)
 const search = ref('')
 
-const items = computed(() => store.state.rawMaterials)
+const items = computed(() => store.state.products)
 
 const filteredItems = computed(() => {
   if (!search.value) return items.value
@@ -247,22 +279,23 @@ const paginationText = computed(() => {
 
 const headers = [
   { title: 'ID', key: 'id', align: 'start', sortable: true },
-  { title: 'Nome da Matéria-Prima', key: 'name', align: 'start', sortable: true },
-  { title: 'Quantidade em Estoque', key: 'qnt', align: 'start', sortable: true },
+  { title: 'Nome do Produto', key: 'name', align: 'start', sortable: true },
+  { title: 'Valor', key: 'value', align: 'start', sortable: true },
+  { title: 'Matérias-Primas', key: 'rawMaterials', align: 'start', sortable: false },
   { title: 'Ações', key: 'actions', align: 'end', sortable: false },
 ]
 
 onMounted(async () => {
   isLoading.value = true
-  await store.getAllRawMaterials()
+  await store.getAllProducts()
   isLoading.value = false
 })
 
 function handleRowClick(event, { item }) {
-  openMetricsDialog(item)
+  openMetricDialog(item)
 }
 
-function editRawMaterial(item) {
+function editProduct(item) {
   selectedItem.value = item
   editDialog.value = true
 }
@@ -276,25 +309,21 @@ function openDeleteDialog(item) {
   deleteDialog.value = true
 }
 
-function openMetricsDialog(item) {
+function openMetricDialog(item) {
   selectedItem.value = item
-  metricsDialog.value = true
+  metricDialog.value = true
+  console.log('Abrindo métricas para:', item)
 }
 
 function handleSaved() {
-  store.getAllRawMaterials()
+  store.getAllProducts()
 }
 
-function getStockColor(qnt) {
-  if (qnt === 0) return 'error'
-  if (qnt < 10) return 'warning'
-  return 'success'
-}
-
-function getStockIcon(qnt) {
-  if (qnt === 0) return 'mdi-alert-circle'
-  if (qnt < 10) return 'mdi-alert'
-  return 'mdi-check-circle'
+function formatCurrency(value) {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  }).format(value)
 }
 </script>
 

@@ -79,7 +79,6 @@ const menuItems = [
   { title: 'Dashboard', icon: 'mdi-view-dashboard-outline', route: '/dashboard' },
   { title: 'Matérias Primas', icon: 'mdi-diamond', route: '/rawmaterial' },
   { title: 'Produtos', icon: 'mdi-cube', route: '/products' },
-  { title: 'Pedidos', icon: 'mdi-shopping', route: '/orders' },
 ]
 
 const checkMobile = () => {

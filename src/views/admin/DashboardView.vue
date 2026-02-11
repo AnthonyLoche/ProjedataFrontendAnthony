@@ -1,7 +1,7 @@
 <template>
   <div>
+    <!-- Cards de métricas -->
     <v-row class="mb-6">
-      <!-- Métricas -->
       <v-col v-for="metric in metrics" :key="metric.title" cols="12" lg="3" sm="6">
         <v-card class="pa-4 elevation-1" flat rounded="lg">
           <div class="d-flex align-center">
@@ -21,15 +21,15 @@
 
     <!-- Gráficos principais -->
     <v-row class="mb-6">
-      <!-- Gráfico de linha: Amostras por mês -->
+      <!-- Gráfico de barras: Distribuição de preços -->
       <v-col cols="12" lg="8">
         <v-card class="pa-4 elevation-1" flat rounded="lg">
           <v-card-title class="text-subtitle-1 font-weight-bold text-text-main">
-            Amostras Analisadas por Mês
+            Produtos por Faixa de Preço
           </v-card-title>
           <v-card-text>
             <EChartsWrapper
-              :options="lineChartOptions"
+              :options="priceDistributionChart"
               height="320px"
               :theme="theme"
             />
@@ -37,15 +37,15 @@
         </v-card>
       </v-col>
 
-      <!-- Gráfico de rosca: Distribuição por status -->
+      <!-- Gráfico de rosca: Produtos por quantidade de matérias-primas -->
       <v-col cols="12" lg="4">
         <v-card class="pa-4 elevation-1" flat rounded="lg">
           <v-card-title class="text-subtitle-1 font-weight-bold text-text-main">
-            Distribuição por Status
+            Produtos por Qtd de Matérias-Primas
           </v-card-title>
           <v-card-text>
             <EChartsWrapper
-              :options="pieChartOptions"
+              :options="productByRawMaterialCountChart"
               height="320px"
               :theme="theme"
             />
@@ -56,15 +56,15 @@
 
     <!-- Gráficos secundários -->
     <v-row class="mb-6">
-      <!-- Gráfico de barras: Tipos de amostra -->
+      <!-- Gráfico de barras: Matérias-primas mais usadas -->
       <v-col cols="12" lg="6">
         <v-card class="pa-4 elevation-1" flat rounded="lg">
           <v-card-title class="text-subtitle-1 font-weight-bold text-text-main">
-            Tipos de Amostra Mais Comuns
+            Matérias-Primas Mais Utilizadas
           </v-card-title>
           <v-card-text>
             <EChartsWrapper
-              :options="barChartOptions"
+              :options="mostUsedRawMaterialsChart"
               height="280px"
               :theme="theme"
             />
@@ -72,15 +72,15 @@
         </v-card>
       </v-col>
 
-      <!-- Gráfico de barras horizontal: Laboratórios -->
+      <!-- Gráfico de barras horizontal: Estoque baixo -->
       <v-col cols="12" lg="6">
         <v-card class="pa-4 elevation-1" flat rounded="lg">
           <v-card-title class="text-subtitle-1 font-weight-bold text-text-main">
-            Amostras por Laboratório
+            Matérias-Primas com Estoque Baixo
           </v-card-title>
           <v-card-text>
             <EChartsWrapper
-              :options="horizontalBarOptions"
+              :options="lowStockChart"
               height="280px"
               :theme="theme"
             />
@@ -88,263 +88,317 @@
         </v-card>
       </v-col>
     </v-row>
-
-  
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import EChartsWrapper from '@/components/admin/EChartsWrapper.vue'
+import { useProductStore } from '@/stores/product'
+import { useRawMaterialStore } from '@/stores/rawMaterial'
 
-// Tema
 const theme = ref('light')
 
-// Métricas
-const metrics = ref([
+// Stores
+const productStore = useProductStore()
+const rawMaterialStore = useRawMaterialStore()
+
+// Carrega os dados ao montar o componente
+onMounted(async () => {
+  await Promise.all([
+    productStore.getAllProducts(),
+    rawMaterialStore.getAllRawMaterials()
+  ])
+})
+
+// --------------------------------------------
+// MÉTRICAS (cards)
+// --------------------------------------------
+const totalProducts = computed(() => productStore.state.products.length)
+
+const totalValueSum = computed(() =>
+  productStore.state.products.reduce((acc, p) => acc + p.value, 0)
+)
+
+const averageValue = computed(() =>
+  productStore.state.products.length
+    ? (totalValueSum.value / productStore.state.products.length).toFixed(2)
+    : '0.00'
+)
+
+const mostExpensive = computed(() =>
+  productStore.state.products.length
+    ? Math.max(...productStore.state.products.map(p => p.value)).toFixed(2)
+    : '0.00'
+)
+
+const productsWithoutRawMaterial = computed(() =>
+  productStore.state.products.filter(p => !p.rawMaterials?.length).length
+)
+
+const totalRawMaterials = computed(() => rawMaterialStore.state.rawMaterials.length)
+
+const totalStockQuantity = computed(() =>
+  rawMaterialStore.state.rawMaterials.reduce((acc, rm) => acc + rm.qnt, 0)
+)
+
+// Estoque baixo (ex: < 50)
+const LOW_STOCK_THRESHOLD = 50
+const lowStockCount = computed(() =>
+  rawMaterialStore.state.rawMaterials.filter(rm => rm.qnt < LOW_STOCK_THRESHOLD).length
+)
+
+// Receita potencial total (cálculo local simplificado)
+const productionPotential = computed(() => {
+  return productStore.state.products.map(product => {
+    if (!product.rawMaterials?.length) {
+      return { maxProduction: 0, potentialRevenue: 0 }
+    }
+
+    const maxByMaterial = product.rawMaterials.map(rm => {
+      const material = rawMaterialStore.state.rawMaterials.find(m => m.id === rm.idRawMaterial)
+      return material ? Math.floor(material.qnt / rm.qnt) : Infinity
+    })
+
+    const maxProduction = Math.min(...maxByMaterial)
+    const potentialRevenue = maxProduction * product.value
+    return { maxProduction, potentialRevenue }
+  })
+})
+
+const totalPotentialRevenue = computed(() =>
+  productionPotential.value.reduce((acc, p) => acc + p.potentialRevenue, 0)
+)
+
+const totalProducibleUnits = computed(() =>
+  productionPotential.value.reduce((acc, p) => acc + p.maxProduction, 0)
+)
+
+// Array final de métricas para os cards
+const metrics = computed(() => [
   {
-    title: 'Total de Amostras',
-    value: '1,234',
-    icon: 'mdi-test-tube',
-    color: 'blue-darken-2',
-    trend: '+12% em relação ao mês anterior',
-    trendClass: 'text-success',
-    trendIcon: 'mdi-trending-up'
+    title: 'Total de Produtos',
+    value: totalProducts.value,
+    icon: 'mdi-package-variant',
+    color: 'primary',
+    trend: null
   },
   {
-    title: 'Amostras Pendentes',
-    value: '156',
-    icon: 'mdi-clock-outline',
-    color: 'orange-darken-2',
-    trend: '+8 desde ontem',
-    trendClass: 'text-warning',
-    trendIcon: 'mdi-alert-circle'
+    title: 'Valor Total dos Produtos',
+    value: `R$ ${Number(totalValueSum.value).toFixed(2)}`,
+    icon: 'mdi-cash-multiple',
+    color: 'success',
+    trend: null
   },
   {
-    title: 'Taxa de Conclusão',
-    value: '87.5%',
-    icon: 'mdi-check-circle-outline',
-    color: 'green-darken-2',
-    trend: '+2.3% em relação ao mês anterior',
-    trendClass: 'text-success',
-    trendIcon: 'mdi-trending-up'
+    title: 'Valor Médio',
+    value: `R$ ${averageValue.value}`,
+    icon: 'mdi-chart-line',
+    color: 'info',
+    trend: null
   },
   {
-    title: 'Turnaround Médio',
-    value: '4.2 dias',
-    icon: 'mdi-calendar-clock',
-    color: 'purple-darken-2',
-    trend: '-0.5 dias em relação ao mês anterior',
-    trendClass: 'text-success',
-    trendIcon: 'mdi-trending-down'
+    title: 'Produto Mais Caro',
+    value: `R$ ${mostExpensive.value}`,
+    icon: 'mdi-trending-up',
+    color: 'error',
+    trend: null
+  },
+  {
+    title: 'Sem Matéria-Prima',
+    value: productsWithoutRawMaterial.value,
+    icon: 'mdi-alert-circle',
+    color: 'warning',
+    trend: null
+  },
+  {
+    title: 'Total de Matérias-Primas',
+    value: totalRawMaterials.value,
+    icon: 'mdi-package',
+    color: 'teal',
+    trend: null
+  },
+  {
+    title: 'Estoque Total (unidades)',
+    value: totalStockQuantity.value.toLocaleString(),
+    icon: 'mdi-counter',
+    color: 'green',
+    trend: null
+  },
+  {
+    title: 'Estoque Baixo (<50)',
+    value: lowStockCount.value,
+    icon: 'mdi-alert',
+    color: 'orange',
+    trend: null
+  },
+  {
+    title: 'Receita Potencial Total',
+    value: `R$ ${totalPotentialRevenue.value.toFixed(2)}`,
+    icon: 'mdi-cash-100',
+    color: 'deep-purple',
+    trend: null
+  },
+  {
+    title: 'Unidades Produzíveis',
+    value: totalProducibleUnits.value.toLocaleString(),
+    icon: 'mdi-factory',
+    color: 'brown',
+    trend: null
   }
 ])
 
-// Dados fictícios para gráficos
-const ultimosMeses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-const tiposAmostra = ['Sangue', 'Urina', 'Tecido', 'Água', 'Solo', 'Ar', 'Alimento']
-const laboratorios = ['Lab Central', 'Lab Norte', 'Lab Sul', 'Lab Leste', 'Lab Oeste']
+// --------------------------------------------
+// GRÁFICOS
+// --------------------------------------------
 
-// Gráfico de linha: Amostras por mês
-const lineChartOptions = computed(() => ({
-  tooltip: {
-    trigger: 'axis',
-    formatter: '{b}: {c} amostras'
-  },
-  grid: {
-    left: '3%',
-    right: '4%',
-    bottom: '3%',
-    containLabel: true
-  },
-  xAxis: {
-    type: 'category',
-    data: ultimosMeses,
-    axisLabel: {
-      color: '#666'
-    }
-  },
-  yAxis: {
-    type: 'value',
-    name: 'Número de Amostras',
-    nameTextStyle: {
-      color: '#666'
-    },
-    axisLabel: {
-      color: '#666'
-    }
-  },
-  series: [
-    {
-      name: 'Amostras',
-      type: 'line',
-      data: [125, 145, 178, 190, 210, 234, 256, 245, 267, 289, 312, 334],
-      smooth: true,
-      itemStyle: {
-        color: '#2196F3'
-      },
-      areaStyle: {
-        color: {
-          type: 'linear',
-          x: 0,
-          y: 0,
-          x2: 0,
-          y2: 1,
-          colorStops: [{
-            offset: 0, color: 'rgba(33, 150, 243, 0.3)'
-          }, {
-            offset: 1, color: 'rgba(33, 150, 243, 0.05)'
-          }]
-        }
-      },
-      lineStyle: {
-        width: 3
-      }
-    }
+// 1. Distribuição de preços dos produtos
+const priceDistributionChart = computed(() => {
+  const ranges = [
+    { min: 0, max: 50, label: 'R$ 0–50' },
+    { min: 50, max: 100, label: 'R$ 50–100' },
+    { min: 100, max: 200, label: 'R$ 100–200' },
+    { min: 200, max: Infinity, label: 'R$ 200+' }
   ]
-}))
 
-// Gráfico de rosca: Distribuição por status
-const pieChartOptions = computed(() => ({
-  tooltip: {
-    trigger: 'item',
-    formatter: '{a} <br/>{b}: {c} ({d}%)'
-  },
-  legend: {
-    orient: 'vertical',
-    left: 'left',
-    top: 'center'
-  },
-  series: [
-    {
-      name: 'Status',
+  const counts = ranges.map(range =>
+    productStore.state.products.filter(p => p.value >= range.min && p.value < range.max).length
+  )
+
+  return {
+    tooltip: { trigger: 'axis' },
+    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+    xAxis: {
+      type: 'category',
+      data: ranges.map(r => r.label),
+      axisLabel: { color: '#666' }
+    },
+    yAxis: {
+      type: 'value',
+      name: 'Nº de Produtos',
+      nameTextStyle: { color: '#666' },
+      axisLabel: { color: '#666' }
+    },
+    series: [{
+      name: 'Produtos',
+      type: 'bar',
+      data: counts,
+      itemStyle: { color: '#2196F3' },
+      barWidth: '50%'
+    }]
+  }
+})
+
+// 2. Produtos por quantidade de matérias-primas utilizadas
+const productByRawMaterialCountChart = computed(() => {
+  const groups = [
+    { label: '0', count: 0 },
+    { label: '1', count: 0 },
+    { label: '2', count: 0 },
+    { label: '3+', count: 0 }
+  ]
+
+  productStore.state.products.forEach(p => {
+    const qty = p.rawMaterials?.length || 0
+    if (qty === 0) groups[0].count++
+    else if (qty === 1) groups[1].count++
+    else if (qty === 2) groups[2].count++
+    else groups[3].count++
+  })
+
+  return {
+    tooltip: { trigger: 'item', formatter: '{b}: {c} produtos ({d}%)' },
+    legend: { orient: 'vertical', left: 'left', top: 'center' },
+    series: [{
+      name: 'Produtos',
       type: 'pie',
       radius: ['40%', '70%'],
       center: ['60%', '50%'],
       avoidLabelOverlap: false,
-      itemStyle: {
-        borderRadius: 10,
-        borderColor: '#fff',
-        borderWidth: 2
-      },
-      label: {
-        show: false,
-        position: 'center'
-      },
-      emphasis: {
-        label: {
-          show: true,
-          fontSize: '16',
-          fontWeight: 'bold'
-        }
-      },
-      labelLine: {
-        show: false
-      },
-      data: [
-        { value: 567, name: 'Concluído', itemStyle: { color: '#4CAF50' } },
-        { value: 234, name: 'Em Análise', itemStyle: { color: '#2196F3' } },
-        { value: 156, name: 'Pendente', itemStyle: { color: '#FF9800' } },
-        { value: 67, name: 'Rejeitado', itemStyle: { color: '#F44336' } }
-      ]
-    }
-  ]
-}))
+      itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
+      label: { show: false },
+      emphasis: { label: { show: true, fontSize: '16', fontWeight: 'bold' } },
+      data: groups.map(g => ({
+        value: g.count,
+        name: `${g.label} matérias-primas`
+      }))
+    }]
+  }
+})
 
-// Gráfico de barras: Tipos de amostra
-const barChartOptions = computed(() => ({
-  tooltip: {
-    trigger: 'axis',
-    axisPointer: {
-      type: 'shadow'
-    }
-  },
-  grid: {
-    left: '3%',
-    right: '4%',
-    bottom: '3%',
-    containLabel: true
-  },
-  xAxis: {
-    type: 'category',
-    data: tiposAmostra,
-    axisLabel: {
-      rotate: 45,
-      color: '#666'
-    }
-  },
-  yAxis: {
-    type: 'value',
-    name: 'Número de Amostras',
-    nameTextStyle: {
-      color: '#666'
-    },
-    axisLabel: {
-      color: '#666'
-    }
-  },
-  series: [
-    {
-      name: 'Amostras',
-      type: 'bar',
-      data: [320, 289, 245, 178, 145, 120, 98],
-      itemStyle: {
-        color: function(params) {
-          const colors = ['#1976D2', '#2196F3', '#64B5F6', '#90CAF9', '#BBDEFB', '#E3F2FD', '#F5F5F5']
-          return colors[params.dataIndex] || '#1976D2'
-        }
-      },
-      barWidth: '60%'
-    }
-  ]
-}))
+// 3. Matérias-primas mais utilizadas (top 5)
+const mostUsedRawMaterialsChart = computed(() => {
+  const usageMap = new Map()
+  productStore.state.products.forEach(product => {
+    product.rawMaterials?.forEach(rm => {
+      usageMap.set(rm.idRawMaterial, (usageMap.get(rm.idRawMaterial) || 0) + 1)
+    })
+  })
 
-// Gráfico de barras horizontal: Laboratórios
-const horizontalBarOptions = computed(() => ({
-  tooltip: {
-    trigger: 'axis',
-    axisPointer: {
-      type: 'shadow'
-    }
-  },
-  grid: {
-    left: '3%',
-    right: '4%',
-    bottom: '3%',
-    containLabel: true
-  },
-  xAxis: {
-    type: 'value',
-    name: 'Número de Amostras',
-    nameTextStyle: {
-      color: '#666'
+  const sorted = Array.from(usageMap.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+
+  const names = sorted.map(([id]) => {
+    const material = rawMaterialStore.state.rawMaterials.find(m => m.id === id)
+    return material ? material.name : `ID ${id}`
+  })
+  const counts = sorted.map(([, count]) => count)
+
+  return {
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+    xAxis: {
+      type: 'category',
+      data: names,
+      axisLabel: { rotate: 15, color: '#666' }
     },
-    axisLabel: {
-      color: '#666'
-    }
-  },
-  yAxis: {
-    type: 'category',
-    data: laboratorios,
-    axisLabel: {
-      color: '#666'
-    }
-  },
-  series: [
-    {
-      name: 'Amostras',
+    yAxis: {
+      type: 'value',
+      name: 'Produtos que utilizam',
+      nameTextStyle: { color: '#666' },
+      axisLabel: { color: '#666' }
+    },
+    series: [{
+      name: 'Utilizações',
       type: 'bar',
-      data: [456, 389, 345, 278, 215],
-      itemStyle: {
-        color: function(params) {
-          const colors = ['#7B1FA2', '#9C27B0', '#BA68C8', '#CE93D8', '#E1BEE7']
-          return colors[params.dataIndex] || '#7B1FA2'
-        }
-      },
+      data: counts,
+      itemStyle: { color: '#FF9800' },
       barWidth: '60%'
-    }
-  ]
-}))
+    }]
+  }
+})
+
+// 4. Matérias-primas com estoque baixo (top 5 menores estoques)
+const lowStockChart = computed(() => {
+  const lowStockMaterials = rawMaterialStore.state.rawMaterials
+    .filter(rm => rm.qnt < LOW_STOCK_THRESHOLD)
+    .sort((a, b) => a.qnt - b.qnt)
+    .slice(0, 5)
+
+  return {
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+    xAxis: {
+      type: 'value',
+      name: 'Quantidade em estoque',
+      nameTextStyle: { color: '#666' },
+      axisLabel: { color: '#666' }
+    },
+    yAxis: {
+      type: 'category',
+      data: lowStockMaterials.map(rm => rm.name),
+      axisLabel: { color: '#666' }
+    },
+    series: [{
+      name: 'Estoque',
+      type: 'bar',
+      data: lowStockMaterials.map(rm => rm.qnt),
+      itemStyle: { color: '#F44336' },
+      barWidth: '60%'
+    }]
+  }
+})
 </script>
 
 <style scoped>

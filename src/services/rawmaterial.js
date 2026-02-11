@@ -36,7 +36,8 @@ class RawMaterialService {
       await api.delete(`/raw-materials/${rawMaterialId}`)
       showMessage('Matéria-prima deletada com sucesso!', 'success', 2000, 'top-right', 'light', false)
     } catch (error) {
-      console.error(`Error deleting raw material with ID ${rawMaterialId}:`, error)
+      showMessage(error.response?.data?.message || 'Erro ao deletar matéria-prima!', 'error', 2000, 'top-right', 'light', false)
+      console.error(`Error deleting raw material with ID ${rawMaterialId}:`, error.response ? error.response.data : error)
     }
   }
 
@@ -47,6 +48,15 @@ class RawMaterialService {
       return response.data
     } catch (error) {
       console.error(`Error updating raw material with ID ${rawMaterialId}:`, error)
+    }
+  }
+
+  async getAllProductsUsingRawMaterial(rawMaterialId) {
+    try {
+      const response = await api.get(`/raw-materials/${rawMaterialId}/products`)
+      return response.data
+    } catch (error) {
+      console.error(`Error fetching products using raw material with ID ${rawMaterialId}:`, error)
     }
   }
 }

@@ -57,6 +57,15 @@ export const useRawMaterialStore = defineStore('rawMaterial', () => {
     }
     }
 
+    const getAllProductsUsingRawMaterial = async (rawMaterialId) => {
+      try {
+        const data = await RawMaterialService.getAllProductsUsingRawMaterial(rawMaterialId)
+        return data
+      } catch (error) {
+        console.error(`Error fetching products using raw material with ID ${rawMaterialId} in store:`, error)
+      }
+    }
+
   return {
     state,
     getAllRawMaterials,
@@ -64,5 +73,6 @@ export const useRawMaterialStore = defineStore('rawMaterial', () => {
     createRawMaterial,
     deleteRawMaterial,
     updateRawMaterial,
+    getAllProductsUsingRawMaterial
   }
 })

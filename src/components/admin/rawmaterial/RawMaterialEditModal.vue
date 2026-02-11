@@ -85,7 +85,7 @@
 
 <script setup>
 import { ref, watch } from 'vue'
-import { useRawMaterialStore } from '@/stores/rawMaterial'
+import { useRawMaterialStore } from '@/stores/rawmaterial'
 
 const props = defineProps({
   modelValue: Boolean,

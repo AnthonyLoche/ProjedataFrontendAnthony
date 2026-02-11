@@ -95,7 +95,7 @@
 import { ref, computed, onMounted } from 'vue'
 import EChartsWrapper from '@/components/admin/EChartsWrapper.vue'
 import { useProductStore } from '@/stores/product'
-import { useRawMaterialStore } from '@/stores/rawMaterial'
+import { useRawMaterialStore } from '@/stores/rawmaterial'
 
 const theme = ref('light')
 

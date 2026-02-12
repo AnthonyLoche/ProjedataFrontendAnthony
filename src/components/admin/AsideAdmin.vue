@@ -48,9 +48,7 @@
     <v-app-bar-nav-icon @click="drawer = !drawer" />
     <v-app-bar-title>
       <div class="d-flex align-center">
-        <v-avatar class="logo-avatar mr-2" size="32">
-          <span class="logo-text-small">UL</span>
-        </v-avatar>
+<img src="../../assets/images/logo.png" alt="" style="width: 40px;height: 40px;">       
         <span class="mobile-title">Projedata</span>
       </div>
     </v-app-bar-title>

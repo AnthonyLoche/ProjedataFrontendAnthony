@@ -118,6 +118,7 @@
                         density="compact"
                         hide-details
                         min="0"
+                        :rules="[v => v >= 0 || 'Quantidade deve ser ≥ 0']"
                       />
                     </v-col>
                     <v-col cols="1" class="d-flex justify-end">
